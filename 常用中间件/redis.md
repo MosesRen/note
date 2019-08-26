@@ -12,7 +12,7 @@ redis的一些笔记（个人向）
 
 + 
 
-![redis区别memcache](.\img\redis区别memcache.jpg)
+![redis区别memcache](..\img\redis区别memcache.jpg)
 
 ## redis 数据类型
 

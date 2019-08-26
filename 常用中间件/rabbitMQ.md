@@ -23,7 +23,7 @@ rabbitMQ是使用erlang开发的一种基于AMQP协议的消息系统
 + Consumer:消息消费者,就是接受消息的程序. 
 + Channel:消息通道,在客户端的每个连接里,可建立多个channel.
 
-![架构](.\img\架构.png)
+![架构](..\img\架构.png)
 
 RabbitMQ队列模型
 
