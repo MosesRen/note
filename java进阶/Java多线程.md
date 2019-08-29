@@ -193,9 +193,9 @@
 
 内存可见：线程对内存的操作和修改对其他线程是可见的。
 
-### 线程同步方法
+## 线程同步方法
 
-+ Synchronized同步
++ **Synchronized同步**
   
   Java语言的关键字，当它用来修饰一个方法或者一个代码块的时候，能够保证在同一时刻最多只有一个线程执行该段代码。
   
@@ -262,18 +262,458 @@
   
   synchronized实现机制：
   
-  32位JVM对象头:Mark Word（标记字段）、Klass Pointer（类型指针）
+  基于操作系统的mutex lock互斥锁来实现的，是重量级锁，后面会详细介绍
   
-  **Mark Word**：默认存储对象的HashCode，分代年龄和锁标志位信息。这些信息都是与对象自身定义无关的数据，所以Mark Word被设计成一个非固定的数据结构以便在极小的空间内存存储尽量多的数据。它会根据对象的状态复用自己的存储空间，也就是说在运行期间Mark Word里存储的数据会随着锁标志位的变化而变化。
++ **使用volatile进行同步**
+
+  1. volatile关键字为域变量的访问提供了一种免锁机制， 
+  2. 使用volatile修饰域相当于告诉虚拟机该域可能会被其他线程更新， 
+  3. 因此每次使用该域就要重新加载，而不是使用寄存器中的值，每次修改完之后要重新写入主内存 
+  4. volatile不会提供任何原子操作，它也不能用来修饰final类型的变量，volatile只提供可见性，不提供原子性 
+
+  ```java
+  public class Counter { 
   
-  **Klass Point**：对象指向它的类元数据的指针，虚拟机通过这个指针来确定这个对象是哪个类的实例。
+   public volatile static int count = 0; 
   
-+ 使用**volatile**进行同步
+       public static void inc() { 
+           //这里延迟1毫秒，使得结果明显 
+           try { 
+               Thread.sleep(1); 
+           } catch (InterruptedException e) {
+           }
+           count++; 
+       } 
+  
+      public static void main(String[] args) { 
+  
+          //同时启动1000个线程，去进行i++计算，看看实际结果 
+          for (int i = 0; i < 1000; i++) { 
+              new Thread(new Runnable() { 
+                  @Override
+                  public void run() { 
+                      Counter.inc(); 
+                  } 
+              }).start(); 
+          } 
+       
+          //这里每次运行的值都有可能不同,可能为1000 
+          System.out.println("运行结果:Counter.count=" + Counter.count); 
+      } 
+  }
+  ```
 
+  
 
++ **锁实现线程同步**
 
-+ **使用可重入锁实现线程同步**
+  在JavaSE5.0中新增了一个java.util.concurrent包来支持同步。 ReentrantLock类是可重入、互斥、实现了Lock接口的锁， 它与使用synchronized方法和快具有相同的基本行为和语义，并且扩展了其能力。
+
+  主要有：ReentrantLock可重入独占锁，ReentrantReadWriteLock读写锁（读共享，写独占），CountDownLatch（计数器），CyclicBarrier（回环栅栏），samaphore（信号量）
+
+  ***可重入锁实例***
+
+  ```java
+  public class ReentrantLockDemo01 implements Runnable {
+  
+      private Lock lock = new ReentrantLock();
+  
+      private int tickets = 200;
+  
+      @Override
+      public void run() {
+          while (true) {
+              lock.lock(); // 获取锁
+              try {
+                  if (tickets > 0) {
+                      TimeUnit.MILLISECONDS.sleep(100);
+                      System.out.println(Thread.currentThread().getName() + " " + tickets--);
+                  } else {
+                      break;
+                  }
+              } catch (InterruptedException e) {
+                  e.printStackTrace();
+              } finally {
+                  lock.unlock(); // 释放所
+              }
+          }
+      }
+  
+      public static void main(String[] args) {
+          ReentrantLockDemo01 reentrantLockDemo = new ReentrantLockDemo01();
+          for (int i = 0; i < 10; i++) {
+              Thread thread = new Thread(reentrantLockDemo, "thread" + i);
+              thread.start();
+          }
+      }
+  }
+  ```
+
+  ***读写锁使用实例***
+
+  ```java
+  import java.util.concurrent.locks.Lock;
+  import java.util.concurrent.locks.ReentrantLock;
+  import java.util.concurrent.locks.ReentrantReadWriteLock;
+  
+  public class JUCtest {
+      private ReentrantReadWriteLock reentrantReadWriteLock = new ReentrantReadWriteLock();
+      private Lock RWlock = new ReentrantLock();
+      private int tickets = 200;
+  
+      public void read(){
+          reentrantReadWriteLock.readLock().lock();
+          try {
+              System.out.println(Thread.currentThread().getName()+":"+tickets);
+          } finally {
+              reentrantReadWriteLock.readLock().unlock();
+          }
+      }
+      public void write(){
+          reentrantReadWriteLock.writeLock().lock();
+          try {
+              System.out.println(Thread.currentThread().getName()+":"+tickets--);
+          } finally {
+              reentrantReadWriteLock.writeLock().unlock();
+          }
+      }
+  
+      public static void main(String[] args) {
+          JUCtest juCtest = new JUCtest();
+          for (int i = 0; i < 10; i++) {
+              Thread thread = new Thread(new Runnable() {
+                  @Override
+                  public void run() {
+                      juCtest.write();
+                  }
+              }, "thread" + i);
+              thread.start();
+          }
+          for (int i = 0; i < 10; i++) {
+              Thread thread = new Thread(new Runnable() {
+                  @Override
+                  public void run() {
+                      juCtest.read();
+                  }
+              },"thread"+i*10);
+              thread.start();
+          }
+      }
+  }
+  ```
+
+  **CountDownLatch**
+
+  新建对象时设置计数的值
+
+  调用await()方法当前线程会挂起，等待count值减为0时继续。
+
+  调用countDown()方法可以将计数值减一
+
+  ```java
+  public class Test {
+       public static void main(String[] args) {   
+           final CountDownLatch latch = new CountDownLatch(2);
+            
+           new Thread(){
+               public void run() {
+                   try {
+                       System.out.println("子线程"+Thread.currentThread().getName()+"正在执行");
+                      Thread.sleep(3000);
+                      System.out.println("子线程"+Thread.currentThread().getName()+"执行完毕");
+                      latch.countDown();
+                  } catch (InterruptedException e) {
+                      e.printStackTrace();
+                  }
+               };
+           }.start();
+            
+           new Thread(){
+               public void run() {
+                   try {
+                       System.out.println("子线程"+Thread.currentThread().getName()+"正在执行");
+                       Thread.sleep(3000);
+                       System.out.println("子线程"+Thread.currentThread().getName()+"执行完毕");
+                       latch.countDown();
+                  } catch (InterruptedException e) {
+                      e.printStackTrace();
+                  }
+               };
+           }.start();
+            
+           try {
+               System.out.println("等待2个子线程执行完毕...");
+              latch.await();
+              System.out.println("2个子线程已经执行完毕");
+              System.out.println("继续执行主线程");
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          }
+       }
+  }
+  ```
+
+  **CyclicBarrier**
+
+  字面意思回环栅栏，通过它可以实现让一组线程等待至某个状态之后再全部同时执行。叫做回环是因为当所有等待线程都被释放以后，CyclicBarrier可以被重用。我们暂且把这个状态就叫做barrier，当调用await()方法之后，线程就处于barrier了。
+
+  ```java
+  public class Test {
+      public static void main(String[] args) {
+          int N = 4;
+          CyclicBarrier barrier  = new CyclicBarrier(N,new Runnable() {
+              @Override
+              public void run() {
+                  System.out.println("当前线程"+Thread.currentThread().getName());   
+              }
+          });
+           
+          for(int i=0;i<N;i++)
+              new Writer(barrier).start();
+      }
+      static class Writer extends Thread{
+          private CyclicBarrier cyclicBarrier;
+          public Writer(CyclicBarrier cyclicBarrier) {
+              this.cyclicBarrier = cyclicBarrier;
+          }
+   
+          @Override
+          public void run() {
+              System.out.println("线程"+Thread.currentThread().getName()+"正在写入数据...");
+              try {
+                  Thread.sleep(5000);      //以睡眠来模拟写入数据操作
+                  System.out.println("线程"+Thread.currentThread().getName()+"写入数据完毕，等待其他线程写入完毕");
+                  cyclicBarrier.await();
+              } catch (InterruptedException e) {
+                  e.printStackTrace();
+              }catch(BrokenBarrierException e){
+                  e.printStackTrace();
+              }
+              System.out.println("所有线程写入完毕，继续处理其他任务...");
+          }
+      }
+  }
+  ```
+
+  **semaphore**
+
+  Semaphore翻译成字面意思为 信号量，Semaphore可以控同时访问的线程个数，通过 acquire() 获取一个许可，如果没有就等待，而 release() 释放一个许可。可以看成一个互斥锁。
+
+  ```java
+  public class Test {
+      public static void main(String[] args) {
+          int N = 8;            //工人数
+          Semaphore semaphore = new Semaphore(5); //机器数目
+          for(int i=0;i<N;i++)
+              new Worker(i,semaphore).start();
+      }
+       
+      static class Worker extends Thread{
+          private int num;
+          private Semaphore semaphore;
+          public Worker(int num,Semaphore semaphore){
+              this.num = num;
+              this.semaphore = semaphore;
+          }
+           
+          @Override
+          public void run() {
+              try {
+                  semaphore.acquire();
+                  System.out.println("工人"+this.num+"占用一个机器在生产...");
+                  Thread.sleep(2000);
+                  System.out.println("工人"+this.num+"释放出机器");
+                  semaphore.release();           
+              } catch (InterruptedException e) {
+                  e.printStackTrace();
+              }
+          }
+      }
+  }
+  ```
+
 + **使用局部变量实现线程同步**
+
+  同步机制是为了同步多个线程对相同资源的并发访问，是为了多个线程之间进行通信的有效方式；而ThreadLocal是隔离多个线程的数据共享，从根本上就不在多个线程之间共享变量，这样当然不需要对多个线程进行同步了。
+
+  ```java
+  //只改Bank类，其余代码与上同
+  public class Bank{
+      //使用ThreadLocal类管理共享变量account
+      private static ThreadLocal<Integer> account = new ThreadLocal<Integer>(){
+          @Override
+          protected Integer initialValue(){
+              return 100;
+          }
+      };
+      public void save(int money){
+          account.set(account.get()+money);
+      }
+      public int getAccount(){
+          return account.get();
+      }
+  }
+  ```
+
 + **使用阻塞队列实现线程同步**
+
++ 前面5种同步方式都是在底层实现的线程同步，但是我们在实际开发当中，应当尽量远离底层结构。 使用javaSE5.0版本中新增的java.util.concurrent包将有助于简化开发。 本小节主要是使用**LinkedBlockingQueue<E>**来实现线程的同步 
+
+  **LinkedBlockingQueue 类常用方法** 
+  LinkedBlockingQueue() : 创建一个容量为Integer.MAX_VALUE的LinkedBlockingQueue 
+
+  ​    put(E e) : 在队尾添加一个元素，如果队列满则阻塞 
+  ​    size() : 返回队列中的元素个数 
+  ​    take() : 移除并返回队头元素，如果队列空则阻塞 
+
+  ```java
+  package com.xhj.thread;
+  
+  import java.util.Random;
+  import java.util.concurrent.LinkedBlockingQueue;
+  
+  /**
+   * 用阻塞队列实现线程同步 LinkedBlockingQueue的使用
+   * 
+   * @author XIEHEJUN
+   * 
+   */
+  public class BlockingSynchronizedThread {
+      /**
+       * 定义一个阻塞队列用来存储生产出来的商品
+       */
+      private LinkedBlockingQueue<Integer> queue = new LinkedBlockingQueue<Integer>();
+      /**
+       * 定义生产商品个数
+       */
+      private static final int size = 10;
+      /**
+       * 定义启动线程的标志，为0时，启动生产商品的线程；为1时，启动消费商品的线程
+       */
+      private int flag = 0;
+  
+      private class LinkBlockThread implements Runnable {
+          @Override
+          public void run() {
+              int new_flag = flag++;
+              System.out.println("启动线程 " + new_flag);
+              if (new_flag == 0) {
+                  for (int i = 0; i < size; i++) {
+                      int b = new Random().nextInt(255);
+                      System.out.println("生产商品：" + b + "号");
+                      try {
+                          queue.put(b);
+                      } catch (InterruptedException e) {
+                          // TODO Auto-generated catch block
+                          e.printStackTrace();
+                      }
+                      System.out.println("仓库中还有商品：" + queue.size() + "个");
+                      try {
+                          Thread.sleep(100);
+                      } catch (InterruptedException e) {
+                          // TODO Auto-generated catch block
+                          e.printStackTrace();
+                      }
+                  }
+              } else {
+                  for (int i = 0; i < size / 2; i++) {
+                      try {
+                          int n = queue.take();
+                          System.out.println("消费者买去了" + n + "号商品");
+                      } catch (InterruptedException e) {
+                          // TODO Auto-generated catch block
+                          e.printStackTrace();
+                      }
+                      System.out.println("仓库中还有商品：" + queue.size() + "个");
+                      try {
+                          Thread.sleep(100);
+                      } catch (Exception e) {
+                          // TODO: handle exception
+                      }
+                  }
+              }
+          }
+      }
+  
+      public static void main(String[] args) {
+          BlockingSynchronizedThread bst = new BlockingSynchronizedThread();
+          LinkBlockThread lbt = bst.new LinkBlockThread();
+          Thread thread1 = new Thread(lbt);
+          Thread thread2 = new Thread(lbt);
+          thread1.start();
+          thread2.start();
+      }
+  }
+  ```
+
 + **使用原子变量实现线程同步**
 
+  ```java
+  class Bank {
+      private AtomicInteger account = new AtomicInteger(100);
+  
+      public AtomicInteger getAccount() {
+          return account;
+      }
+  
+      public void save(int money) {
+          account.addAndGet(money);
+      }
+  }
+  ```
+
+## 无锁，偏向锁，轻量级锁，重量级锁
+
+### java 对象头内容
+
+32位JVM对象头:Mark Word（标记字段）、Klass Pointer（类型指针）
+
+![](../img/java对象头.png)
+
+**Mark Word**：默认存储对象的HashCode，分代年龄和锁标志位信息。这些信息都是与对象自身定义无关的数据，所以Mark Word被设计成一个非固定的数据结构以便在极小的空间内存存储尽量多的数据。它会根据对象的状态复用自己的存储空间，也就是说在运行期间Mark Word里存储的数据会随着锁标志位的变化而变化。
+
+**Klass Point**：对象指向它的类元数据的指针，虚拟机通过这个指针来确定这个对象是哪个类的实例。
+
+**Monitor(监视器)**
+
+Monitor record是线程私有的数据结构，每一个线程都有一个可用monitor record列表，同时还有一个全局的可用列表。每一个被锁住的对象都会和一个monitor关联，同时monitor中有一个Owner字段存放拥有该锁的线程的唯一标识，表示该锁被这个线程占用。
+
+## 乐观锁和悲观锁
+
+先说概念。对于同一个数据的并发操作，悲观锁认为自己在使用数据的时候一定有别的线程来修改数据，因此在获取数据的时候会先加锁，确保数据不会被别的线程修改。Java中，synchronized关键字和Lock的实现类都是悲观锁。
+
+而乐观锁认为自己在使用数据时不会有别的线程修改数据，所以不会添加锁，只是在更新数据的时候去判断之前有没有别的线程更新了这个数据。如果这个数据没有被更新，当前线程将自己修改的数据成功写入。如果数据已经被其他线程更新，则根据不同的实现方式执行不同的操作（例如报错或者自动重试）。
+
+乐观锁在Java中是通过使用无锁编程来实现，最常采用的是CAS算法，Java原子类中的递增操作就通过CAS自旋实现的。
+
+## 锁的区分（按照某一方面的特性）
+
++ **公平锁和非公平锁**
+
+  公平锁是指多个线程按照申请锁的顺序来获取锁，线程直接进入队列中排队，队列中的第一个线程才能获得锁。公平锁的优点是等待锁的线程不会饿死。缺点是整体吞吐效率相对非公平锁要低，等待队列中除第一个线程以外的所有线程都会阻塞，CPU唤醒阻塞线程的开销比非公平锁大。
+
+  非公平锁是多个线程加锁时直接尝试获取锁，获取不到才会到等待队列的队尾等待。但如果此时锁刚好可用，那么这个线程可以无需阻塞直接获取到锁，所以非公平锁有可能出现后申请锁的线程先获取锁的场景。非公平锁的优点是可以减少唤起线程的开销，整体的吞吐效率高，因为线程有几率不阻塞直接获得锁，CPU不必唤醒所有线程。缺点是处于等待队列中的线程可能会饿死，或者等很久才会获得锁。
+
++ **自旋锁和非自旋锁**
+
+  在许多场景中，同步资源的锁定时间很短，为了这一小段时间去切换线程，线程挂起和恢复现场的花费可能会让系统得不偿失。如果物理机器有多个处理器，能够让两个或以上的线程同时并行执行，我们就可以让后面那个请求锁的线程不放弃CPU的执行时间，看看持有锁的线程是否很快就会释放锁。
+
+  而为了让当前线程“稍等一下”，我们需让当前线程进行自旋，如果在自旋完成后前面锁定同步资源的线程已经释放了锁，那么当前线程就可以不必阻塞而是直接获取同步资源，从而避免切换线程的开销。这就是自旋锁。自旋锁的实现原理同样也是CAS。
+
+  自适应意味着自旋的时间（次数）不再固定，而是由前一次在同一个锁上的自旋时间及锁的拥有者的状态来决定。如果在同一个锁对象上，自旋等待刚刚成功获得过锁，并且持有锁的线程正在运行中，那么虚拟机就会认为这次自旋也是很有可能再次成功，进而它将允许自旋等待持续相对更长的时间。如果对于某个锁，自旋很少成功获得过，那在以后尝试获取这个锁时将可能省略掉自旋过程，直接阻塞线程，避免浪费处理器资源。
+
++ **共享锁和排他锁**
+
+  独享锁和共享锁同样是一种概念。我们先介绍一下具体的概念，然后通过ReentrantLock和ReentrantReadWriteLock的源码来介绍独享锁和共享锁。
+
+  独享锁也叫排他锁，是指该锁一次只能被一个线程所持有。如果线程T对数据A加上排它锁后，则其他线程不能再对A加任何类型的锁。获得排它锁的线程即能读数据又能修改数据。JDK中的synchronized和JUC中Lock的实现类就是互斥锁。
+
+  共享锁是指该锁可被多个线程所持有。如果线程T对数据A加上共享锁后，则其他线程只能对A再加共享锁，不能加排它锁。获得共享锁的线程只能读数据，不能修改数据。
+
+  独享锁与共享锁也是通过AQS来实现的，通过实现不同的方法，来实现独享或者共享。
+
+## AQS
+
+AbstractQueuedSynchronizer(AQS)，抽象的队列式的同步器，AQS定义了一套多线程访问共享资源的同步器框架，许多同步类实现都依赖于它。
+
+AQS是一个抽象类，一些锁的实现依赖于内部类Sync，Sync继承AQS（AbstractQueuedSynchronizer），添加锁和释放锁的大部分操作实际上都是在Sync中实现的。它有公平锁FairSync和非公平锁NonfairSync两个子类。
