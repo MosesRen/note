@@ -2,6 +2,13 @@
 
 ## Spring主要框架
 
+Spring 容器启动过程
+
+- 1、资源定位：找到配置文件（载入配置文件/Springboot采用自动扫描）
+- 2、BeanDefinition载入和解析（解析成BeanDefiniton）
+- 3、BeanDefinition注册（添加到map(key,Definition)）
+- 4、bean的实例化和依赖注入(getBean()方法进行实例化)
+
 ## Spring 主要功能
 
 ## ICO
@@ -32,3 +39,7 @@ Component 通用bean
 Repository 对应数据访问层Bean
 Service 对应业务逻辑层bean
 Controller 对应表现层的Bean
+
+@refrence与@resource 
+
+前者是dubbo注解，后者是spring 的。后者@resource很简单就是注入资源，与@Autowired比较接近，只不过是按照变量名（beanid）注入。@reference也是注入，但是一般用来注入分布式的远程服务对象，需要配合dubbo配置使用。他们的区别就是一个是本地spring容器，另一个是把远程服务对象当做spring容器中的对象一样注入。

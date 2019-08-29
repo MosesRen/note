@@ -1,4 +1,4 @@
-# Java并发
+# **Java**并发
 
 主要的问题：
 
@@ -32,7 +32,7 @@
 
    ![](../img/线程状态.png)
 
-## 并发程序的同步方式
+### 并发程序的同步方式
 
 进程：无名管道(pipe)、有名管道(FIFO)、信号、共享内存、消息队列、信号量、套接字(socket)
 线程：互斥量、读写锁、自旋锁、线程信号、条件变量
@@ -193,7 +193,7 @@
 
 内存可见：线程对内存的操作和修改对其他线程是可见的。
 
-## 线程同步方法
+### 线程同步方法
 
 + **Synchronized同步**
   
@@ -270,6 +270,7 @@
   2. 使用volatile修饰域相当于告诉虚拟机该域可能会被其他线程更新， 
   3. 因此每次使用该域就要重新加载，而不是使用寄存器中的值，每次修改完之后要重新写入主内存 
   4. volatile不会提供任何原子操作，它也不能用来修饰final类型的变量，volatile只提供可见性，不提供原子性 
+  5. volatile 可以禁止指令重排序，不缓存在cache中
 
   ```java
   public class Counter { 
@@ -303,7 +304,11 @@
   }
   ```
 
-  
+  ### CAS
+
+  CAS(Compare And Swap)，即比较并交换。是解决多线程并行情况下使用锁造成性能损耗的一种机制，CAS操作包含三个操作数——内存位置（V）、预期原值（A）和新值(B)。如果内存位置的值与预期原值相匹配，那么处理器会自动将该位置值更新为新值。否则，处理器不做任何操作。
+
+  java采用 sun.misc.unsafe类里的CAS实现的，unsafe的实现是基于操作系统实现的。java.util.concurrent.atomic里面的原子类和AQS是采用CSA操作实现的。
 
 + **锁实现线程同步**
 
@@ -662,9 +667,9 @@
   }
   ```
 
-## 无锁，偏向锁，轻量级锁，重量级锁
+### 无锁，偏向锁，轻量级锁，重量级锁（synchronized优化）
 
-### java 对象头内容
+**java 对象头内容**
 
 32位JVM对象头:Mark Word（标记字段）、Klass Pointer（类型指针）
 
@@ -678,7 +683,7 @@
 
 Monitor record是线程私有的数据结构，每一个线程都有一个可用monitor record列表，同时还有一个全局的可用列表。每一个被锁住的对象都会和一个monitor关联，同时monitor中有一个Owner字段存放拥有该锁的线程的唯一标识，表示该锁被这个线程占用。
 
-## 乐观锁和悲观锁
+### 乐观锁和悲观锁
 
 先说概念。对于同一个数据的并发操作，悲观锁认为自己在使用数据的时候一定有别的线程来修改数据，因此在获取数据的时候会先加锁，确保数据不会被别的线程修改。Java中，synchronized关键字和Lock的实现类都是悲观锁。
 
@@ -686,7 +691,7 @@ Monitor record是线程私有的数据结构，每一个线程都有一个可用
 
 乐观锁在Java中是通过使用无锁编程来实现，最常采用的是CAS算法，Java原子类中的递增操作就通过CAS自旋实现的。
 
-## 锁的区分（按照某一方面的特性）
+### 锁的区分（按照某一方面的特性）
 
 + **公平锁和非公平锁**
 
@@ -712,8 +717,146 @@ Monitor record是线程私有的数据结构，每一个线程都有一个可用
 
   独享锁与共享锁也是通过AQS来实现的，通过实现不同的方法，来实现独享或者共享。
 
-## AQS
+### AQS
 
 AbstractQueuedSynchronizer(AQS)，抽象的队列式的同步器，AQS定义了一套多线程访问共享资源的同步器框架，许多同步类实现都依赖于它。
 
 AQS是一个抽象类，一些锁的实现依赖于内部类Sync，Sync继承AQS（AbstractQueuedSynchronizer），添加锁和释放锁的大部分操作实际上都是在Sync中实现的。它有公平锁FairSync和非公平锁NonfairSync两个子类。
+
+AQS维护了一个volatile int state（代表共享资源）和一个FIFO线程等待队列（多线程争用资源被阻塞时会进入此队列）
+
+AQS的实现依赖内部的同步队列（FIFO双向队列），如果当前线程获取同步状态失败，AQS会将该线程以及等待状态等信息构造成一个Node，将其加入同步队列的尾部，同时阻塞当前线程，当同步状态释放时，唤醒队列的头节点。
+首先来看AQS最主要的三个成员变量：
+
+```java
+    private transient volatile Node head;//头结点
+    
+    private transient volatile Node tail;//尾结点
+
+    private volatile int state;//同步状态变量
+```
+
+假设state=0表示同步状态可用（如果用于锁，则表示锁可用），state=1表示同步状态已被占用（锁被占用）
+
+**获取同步状态**
+
+假设线程A要获取同步状态（这里想象成锁，方便理解），初始状态下state=0,所以线程A可以顺利获取锁，A获取锁后将state置为1。在A没有释放锁期间，线程B也来获取锁，此时因为state=1，表示锁被占用，所以将B的线程信息和等待状态等信息构成出一个Node节点对象，放入同步队列，head和tail分别指向队列的头部和尾部**（此时队列中有一个空的Node节点作为头点，head指向这个空节点，空Node的后继节点是B对应的Node节点，tail指向它）**，同时阻塞线程B(这里的阻塞使用的是LockSupport.park()方法)。后续如果再有线程要获取锁，都会加入队列尾部并阻塞。
+
+**释放同步状态**
+
+当线程A释放锁时，即将state置为0，此时A会唤醒头节点的后继节点（所谓唤醒，其实是调用LockSupport.unpark(B)方法），即B线程从LockSupport.park()方法返回，此时B发现state已经为0，所以B线程可以顺利获取锁，B获取锁后B的Node节点随之出队。
+
+(注 LockSupport 实际调用的是unsafe的park和unpark方法)
+
+主要方法：
+
+```java
+getState()//获取状态
+setState()//设置状态
+compareAndSetState()//比较并设置状态，CAS
+boolean tryAcquire(int arg)//尝试获取互斥锁
+boolean tryRelease(int arg)//尝试释放互斥锁
+int tryAcquireShared(int arg)//尝试获取共享锁
+boolean tryReleaseShared(int arg)//尝试释放共享锁
+boolean isHeldExclusively()//判断是否独占
+```
+
+AQS主要使用了模板模式，使用时只要实现模板中的方法即可，自定义同步器在实现时只需要实现共享资源 state 的获取与释放方式即可，至于具体线程等待队列的维护（如获取资源失败入队/唤醒出队等），AQS已经在顶层实现好了。
+
+## 4.原子类
+
+**基本类型**
+
+使用原子的方式更新基本类型
+
+- AtomicInteger：整形原子类
+- AtomicLong：长整型原子类
+- AtomicBoolean：布尔型原子类
+
+**数组类型**
+
+使用原子的方式更新数组里的某个元素
+
+- AtomicIntegerArray：整形数组原子类
+- AtomicLongArray：长整形数组原子类
+- AtomicReferenceArray：引用类型数组原子类
+
+**引用类型**
+
+- AtomicReference：引用类型原子类
+- AtomicStampedReference：原子更新引用类型里的字段原子类
+- AtomicMarkableReference ：原子更新带有标记位的引用类型
+
+**对象的属性修改类型**
+
+- AtomicIntegerFieldUpdater：原子更新整形字段的更新器
+- AtomicLongFieldUpdater：原子更新长整形字段的更新器
+- AtomicStampedReference：原子更新带有版本号的引用类型。该类将整数值与引用关联起来，可用于解决原子的更新数据和数据的版本号，可以解决使用 CAS 进行原子更新时可能出现的 ABA 问题。
+
+## 5.ThreadLocal
+
+通常情况下，我们创建的变量是可以被任何一个线程访问并修改的。**如果想实现每一个线程都有自己的专属本地变量该如何解决呢？** JDK中提供的`ThreadLocal`类正是为了解决这样的问题。 **ThreadLocal类主要解决的就是让每个线程绑定自己的值，可以将ThreadLocal类形象的比喻成存放数据的盒子，盒子中可以存储每个线程的私有数据。**
+
+**如果你创建了一个ThreadLocal变量，那么访问这个变量的每个线程都会有这个变量的本地副本，这也是ThreadLocal变量名的由来。他们可以使用 get（） 和 set（） 方法来获取默认值或将其值更改为当前线程所存的副本的值，从而避免了线程安全问题。**
+
+`Thread` 类中有一个 `threadLocals` 和 一个 `inheritableThreadLocals` 变量，它们都是 `ThreadLocalMap` 类型的变量,我们可以把 `ThreadLocalMap` 理解为`ThreadLocal` 类实现的定制化的 `HashMap`。默认情况下这两个变量都是null，只有当前线程调用 `ThreadLocal` 类的 `set`或`get`方法时才创建它们，实际上调用这两个方法的时候，我们调用的是`ThreadLocalMap`类对应的 `get()`、`set() `方法。
+
+`ThreadLocalMap` 中使用的 key 为 `ThreadLocal` 的弱引用,而 value 是强引用。所以，如果 `ThreadLocal` 没有被外部强引用的情况下，在垃圾回收的时候会 key 会被清理掉，而 value 不会被清理掉。这样一来，`ThreadLocalMap` 中就会出现key为null的Entry。假如我们不做任何措施的话，value 永远无法被GC 回收，这个时候就可能会产生内存泄露。ThreadLocalMap实现中已经考虑了这种情况，在调用 `set()`、`get()`、`remove()` 方法的时候，会清理掉 key 为 null 的记录。使用完 `ThreadLocal`方法后 最好手动调用`remove()`方法
+
+强弱引用问题，在GC里面详细介绍。
+
+## 6.并发容器
+
+- **ConcurrentHashMap:** 线程安全的HashMap
+- **CopyOnWriteArrayList:** 线程安全的List，在读多写少的场合性能非常好，远远好于Vector.
+- **ConcurrentLinkedQueue:** 高效的并发队列，使用链表实现。可以看做一个线程安全的 LinkedList，这是一个非阻塞队列。
+- **BlockingQueue:** 这是一个接口，JDK内部通过链表、数组等方式实现了这个接口。表示阻塞队列，非常适合用于作为数据共享的通道。
+- **ConcurrentSkipListMap:** 跳表的实现。这是一个Map，使用跳表的数据结构进行快速查找。
+
+## 7.线程池
+
+线程池提供了一种限制和管理资源（包括执行一个任务）。 每个线程池还维护一些基本统计信息，例如已完成任务的数量。
+
+**好处：**
+
+- **降低资源消耗。** 通过重复利用已创建的线程降低线程创建和销毁造成的消耗。
+- **提高响应速度。** 当任务到达时，任务可以不需要的等到线程创建就能立即执行。
+- **提高线程的可管理性。** 线程是稀缺资源，如果无限制的创建，不仅会消耗系统资源，还会降低系统的稳定性，使用线程池可以进行统一的分配，调优和监控。
+
+**线程池创建方式**
+
+直接创建ThreadPoolExcutor对象
+
+使用**Executors**工具类创建对应的线程池
+
+线程池主要的参数：
+
+- **corePoolSize：**核心池的大小，这个参数与后面讲述的线程池的实现原理有非常大的关系。
+- **maximumPoolSize：**线程池最大线程数，它表示在线程池中最多能创建多少个线程；
+- **keepAliveTime**：表示线程没有任务执行时最多保持多久时间会终止。
+- **unit：**参数keepAliveTime的时间单位，有7种取值。
+- **workQueue**：一个阻塞队列，用来存储等待执行的任务，可选择类型，影响性能
+  - ArrayBlockingQueue;基于数组的先进先出队列，有界
+  - LinkedBlockingQueue;基于链表的先进先出队列，无界
+  - SynchronousQueue;无缓冲的等待队列，无界
+- **threadFactory**：线程工厂，主要用来创建线程；
+- **handler**：表示当拒绝处理任务时的策略，有以下四种取值：
+
+```java
+ThreadPoolExecutor.AbortPolicy;//丢弃任务并抛出RejectedExecutionException异常。 （默认）
+ThreadPoolExecutor.DiscardPolicy;//也是丢弃任务，但是不抛出异常。 
+ThreadPoolExecutor.DiscardOldestPolicy;//丢弃队列最前面的任务，然后重新尝试执行任务（重复此过程）
+ThreadPoolExecutor.CallerRunsPolicy;//由调用线程处理该任务 
+```
+
+**主要的线程池类型：**
+
+- **FixedThreadPool** ： 该方法返回一个固定线程数量的线程池。该线程池中的线程数量始终不变。当有一个新的任务提交时，线程池中若有空闲线程，则立即执行。若没有，则新的任务会被暂存在一个任务队列中，待有线程空闲时，便处理在任务队列中的任务。（固定大小）
+
+- **SingleThreadExecutor：** 方法返回一个只有一个线程的线程池。若多余一个任务被提交到该线程池，任务会被保存在一个任务队列中，待线程空闲，按先入先出的顺序执行队列中的任务。（单个）
+
+- **CachedThreadPool：** 该方法返回一个可根据实际情况调整线程数量的线程池。线程池的线程数量不确定，但若有空闲线程可以复用，则会优先使用可复用的线程。若所有线程均在工作，又有新的任务提交，则会创建新的线程处理任务。所有线程在当前任务执行完毕后，将返回线程池进行复用。（动态调整）
+
+  
+
+三种线程池  四种拒绝策略 三种等待队列
