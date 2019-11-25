@@ -1,30 +1,52 @@
 # 一些平时的note记录
-1. import问题 在同一个包下，一个类访问另一个类的静态成员变量无需import 只要直接 类名.成员名即可
-2. Spring 容器启动过程
-   + 1、资源定位：找到配置文件（载入配置文件/Springboot采用自动扫描）
-   + 2、BeanDefinition载入和解析（解析成BeanDefiniton）
-   + 3、BeanDefinition注册（添加到map(key,Definition)）
-   + 4、bean的实例化和依赖注入(getBean()方法进行实例化)
+### import问题 
 
-3. @refrence与@resource 
+在同一个包下，一个类访问另一个类的静态成员变量无需import 只要直接 类名.成员名即可
 
-    前者是dubbo注解，后者是spring 的。后者@resource很简单就是注入资源，与@Autowired比较接近，只不过是按照变量名（beanid）注入。@reference也是注入，但是一般用来注入分布式的远程服务对象，需要配合dubbo配置使用。他们的区别就是一个是本地spring容器，另一个是把远程服务对象当做spring容器中的对象一样注入。
-4. ceil()和floor()区别
-   
-    ceil()对整形变量向左取整，返回类型为double型。不小于x的最大整数，如ceil(1.5) =2
+### ceil()和floor()区别
 
-    floor()对整形变量向左取整，返回类型为double型。不大于x的最大整数，如floor(1.5) = 1;
+ceil()对整形变量向左取整，返回类型为double型。不小于x的最大整数，如ceil(1.5) =2
 
-    round(x) = Math.floor(x+0.5) 四舍五入
-5. Stringbuffer 和Stringbuilder
-    buffer 线程安全，先提出，builder线程不安全，后提出为了改善效率。
-6. 日期和时间
-    获取时间Date();
-    获取日期Calendar().getInstance();
-7. java 引用传递
-    只存在值传递，只存在值传递！！！基础类型传值，引用了类型虽然传引用，但是传递的是传入的对象的一个拷贝的引用。修改并不影响原来对象。
+floor()对整形变量向左取整，返回类型为double型。不大于x的最大整数，如floor(1.5) = 1;
 
-**java 内部类**
+round(x) = Math.floor(x+0.5) 四舍五入
+
+### Stringbuffer 和Stringbuilder
+
+buffer 线程安全，先提出，builder线程不安全，后提出为了改善效率。
+
+### 日期和时间
+
+获取时间Date();
+获取日期Calendar().getInstance();
+
+### java 引用传递
+
+只存在值传递，只存在值传递！！！基础类型传值，引用了类型虽然传引用，但是传递的是传入的对象的一个拷贝的引用。修改并不影响原来对象。
+
+### == 和equals
+
+== 基本数据类型比较的是值
+
+引用类型比较的是引用的对象的地址
+
+equals 默认比较的是对象的地址（String重写了equals方法）
+
+String类的equals方法步骤：
+
+1.若A==B 即是同一个String对象 返回true
+
+2.若对比对象是String类型则继续，否则返回false
+
+3.判断A、B长度是否一样，不一样的话返回false
+
+4。逐个字符比较，若有不相等字符，返回false
+
+hashcode 两个对象equals 则hashcode一定相等，反之则不一定相等
+
+若重写了equals的方法，则有必要重写hashcode方法，确保equals为true的两个对象的hashcode返回值相同。
+
+### java 内部类
 
 + 成员内部类
     等同与成员变量
@@ -44,16 +66,151 @@
 
 可以用lambda表示一个函数式接口的实现
 
-### 常用的函数式接口
+**常用的函数式接口**
 
-java.lang.Runnable,
+​	java.lang.Runnable,
 
-java.awt.event.ActionListener, 
+​	java.awt.event.ActionListener, 
 
-java.util.Comparator,
+​	java.util.Comparator,
 
-java.util.concurrent.Callable
+​	java.util.concurrent.Callable
 
-java.util.function包下的接口，如Consumer、Predicate、Supplier等
+​	java.util.function包下的接口，如Consumer、Predicate、Supplier等
 
+| 函数式接口                     | 参数类型 | 返回类型    | 用途                                                        |
+| ------------------------------ | -------- | ----------- | ----------------------------------------------------------- |
+| **Consumer<T>(消费型接口)**    | **T**    | **void**    | **对类型为T的对象应用操作。void accept(T t)**               |
+| **Supplier<T>(供给型接口)**    | **无**   | **T**       | **返回类型为T的对象。 T get();**                            |
+| **Function<T, R>(函数型接口)** | **T**    | **R**       | **对类型为T的对象应用操作并返回R类型的对象。R apply(T t);** |
+| **Predicate<T>(断言型接口)**   | **T**    | **boolean** | **确定类型为T的对象是否满足约束。boolean test(T t);**       |
 
+### 接口和抽象类的区别是什么？
+
+1. 接口的方法默认是 public，所有方法在接口中不能有实现(Java 8 开始接口方法可以有默认实现），而抽象类可以有非抽象的方法。
+2. 接口中除了static、final变量，不能有其他变量，而抽象类中则不一定。（接口类中只能定义public static final常量）
+3. 一个类可以实现多个接口，但只能实现一个抽象类。接口自己本身可以通过extends关键字扩展多个接口。
+4. 接口方法默认修饰符是public，抽象方法可以有public、protected和default这些修饰符（抽象方法就是为了被重写所以不能使用private关键字修饰！）。
+5. 从设计层面来说，抽象是对类的抽象，是一种模板设计，而接口是对行为的抽象，是一种行为的规范。
+
+### 在 Java 中定义一个不做事且没有参数的构造方法的作用
+
+Java 程序在执行子类的构造方法之前，如果没有用 `super() `来调用父类特定的构造方法，则会调用父类中“没有参数的构造方法”。因此，如果父类中只定义了有参数的构造方法，而在子类的构造方法中又没有用 `super() `来调用父类中特定的构造方法，则编译时将发生错误，因为 Java 程序在父类中找不到没有参数的构造方法可供执行。解决办法是在父类里加上一个不做事且没有参数的构造方法。 　
+
+### 构造方法有哪些特性？
+
+1. 名字与类名相同。
+2. 没有返回值，但不能用void声明构造函数。
+3. 生成类的对象时自动执行，无需调用。
+
+### == 与 equals(重要)
+
+**==** : 它的作用是判断两个对象的地址是不是相等。即，判断两个对象是不是同一个对象(基本数据类型==比较的是值，引用数据类型==比较的是内存地址)。
+
+**equals()** : 它的作用也是判断两个对象是否相等。但它一般有两种使用情况：
+
+- 情况1：类没有覆盖 equals() 方法。则通过 equals() 比较该类的两个对象时，等价于通过“==”比较这两个对象。
+- 情况2：类覆盖了 equals() 方法。一般，我们都覆盖 equals() 方法来比较两个对象的内容是否相等；若它们的内容相等，则返回 true (即，认为这两个对象相等)。
+
+### List数组相互转换
+
+java steam
+
+```java
+Integer [] myArray = { 1, 2, 3 };
+List myList = Arrays.stream(myArray).collect(Collectors.toList());
+//基本类型也可以实现转换（依赖boxed的装箱操作）
+int [] myArray2 = { 1, 2, 3 };
+List myList = Arrays.stream(myArray2).boxed().collect(Collectors.toList());
+```
+
+​	Guava
+
+```java
+List<String> il = ImmutableList.of("string", "elements");  // from varray
+List<String> il = ImmutableList.copyOf(aStringArray);      // from array
+```
+
+### Collection.toArray()方法使用的坑&如何反转数组
+
+该方法是一个泛型方法：`<T> T[] toArray(T[] a);` 如果`toArray`方法中没有传递任何参数的话返回的是`Object`类型数组。
+
+```java
+String [] s= new String[]{
+    "dog", "lazy", "a", "over", "jumps", "fox", "brown", "quick", "A"
+};
+List<String> list = Arrays.asList(s);
+Collections.reverse(list);
+s=list.toArray(new String[0]);//没有指定类型的话会报错
+```
+
+由于JVM优化，`new String[0]`作为`Collection.toArray()`方法的参数现在使用更好，`new String[0]`就是起一个模板的作用，指定了返回数组的类型，0是为了节省空间，因为它只是为了说明返回的类型。
+
+###  不要在 foreach 循环里进行元素的 remove/add 操作
+
+如果要进行`remove`操作，可以调用迭代器的 `remove `方法而不是集合类的 remove 方法。因为如果列表在任何时间从结构上修改创建迭代器之后，以任何方式除非通过迭代器自身`remove/add`方法，迭代器都将抛出一个`ConcurrentModificationException`,这就是单线程状态下产生的 **fail-fast 机制**。
+
+> **fail-fast 机制** ：多个线程对 fail-fast 集合进行修改的时，可能会抛出ConcurrentModificationException，单线程下也会出现这种情况，上面已经提到过。
+
+### String类的Intern方法
+
+string的两种构造方式:
+
+1. 直接使用“”进行构造，字符串对象直接在常量池中创建（jdk 1.7 后常量池移到了堆中，1.6时常量池和方法区在一起）
+2. 使用new String()进行对象的创建，直接在堆中构建一个新的对象
+
+Intern方法：
+
+intern方法可以看成返回常量池中该字符串对象的引用。如果没有该字符串对象就把这个对象（或引用）加到常量池。
+
+### 新建一个类的方式
+
+1. new 一个对象
+2. 调用clone()方法
+3. 使用反射构造一个对象
+4. 反序列化一个对象
+
+### java和C++区别
+
+java内存管理，C++指针访问，需要自己释放内存
+
+java单继承，C++多继承
+
+### 构造函数Constructor重载和重写问题
+
+可以被重载，即一个类中可以有多个构造器
+
+不可以被重写，子类无法继承父类的构造函数和私有属性吗,(私有方法可以继承不能重写）
+
+### 重载和重写的区别
+
+- **重载：** 发生在同一个类中，方法名必须相同，参数类型不同、个数不同、顺序不同，方法返回值和访问修饰符可以不同，发生在编译时。 　　
+- **重写：** 发生在父子类中，方法名、参数列表必须相同，返回值范围小于等于父类，抛出的异常范围小于等于父类，访问修饰符范围大于等于父类；如果父类方法访问修饰符为 private 则子类就不能重写该方法。
+
+### Java 面向对象编程三大特性: 封装 继承 多态
+
+#### 封装
+
+封装把一个对象的属性私有化，同时提供一些可以被外界访问的属性的方法，如果属性不想被外界访问，我们大可不必提供方法给外界访问。但是如果一个类没有提供给外界访问的方法，那么这个类也没有什么意义了。
+
+#### 继承
+
+继承是使用已存在的类的定义作为基础建立新类的技术，新类的定义可以增加新的数据或新的功能，也可以用父类的功能，但不能选择性地继承父类。通过使用继承我们能够非常方便地复用以前的代码。
+
+**关于继承如下 3 点请记住：**
+
+1. 子类拥有父类对象所有的属性和方法（包括私有属性和私有方法），但是父类中的私有属性和方法子类是无法访问，**只是拥有**。
+2. 子类可以拥有自己属性和方法，即子类可以对父类进行扩展。
+3. 子类可以用自己的方式实现父类的方法。（override重写）。
+
+#### 多态
+
+所谓多态就是指程序中定义的引用变量所指向的具体类型和通过该引用变量发出的方法调用在编程时并不确定，而是在程序运行期间才确定，即一个引用变量到底会指向哪个类的实例对象，该引用变量发出的方法调用到底是哪个类中实现的方法，必须在由程序运行期间才能决定。
+
+在Java中有两种形式可以实现多态：继承（多个子类对同一方法的重写）和接口（实现接口并覆盖接口中同一方法）
+
+### 构造方法有哪些特性？
+
+1. 名字与类名相同。
+2. 没有返回值，但不能用void声明构造函数。
+3. 生成类的对象时自动执行，无需调用。

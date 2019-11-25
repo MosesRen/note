@@ -1,4 +1,41 @@
 # Mybatis 学习
+
+### JDBC工作流程
+
+（1）  加载JDBC驱动
+
+（2）  建立并获取数据库连接
+
+（3）  创建 JDBC Statements 对象
+
+（4）  设置SQL语句的传入参数
+
+（5）  执行SQL语句并获得查询结果
+
+（6）  对查询结果进行转换处理并将处理结果返回
+
+（7）  释放相关资源（关闭Connection，关闭Statement，关闭ResultSet）
+
+mybatis对JDBC的优化:
+
+（1） 使用数据库连接池对连接进行管理
+
+（2） SQL语句统一存放到配置文件
+
+（3） SQL语句变量和传入参数的映射以及动态SQL
+
+（4） 动态SQL语句的处理
+
+（5） 对数据库操作结果的映射和结果缓存
+
+（6） SQL语句的重复(SQL模块化)
+
+Mybatis基本结构和流程
+
+流程：
+
+当框架启动时，通过configuration解析config.xml配置文件和mapper.xml映射文件，映射文件可以使用xml方式或者注解方式，然后由configuration获得sqlsessionfactory对象，再由sqlsessionfactory获得sqlsession数据库访问会话对象，通过会话对象获得对应DAO层的mapper对象，通过调用mapper对象相应方法，框架就会自动执行SQL语句从而获得结果。
+
 ## 配置文件
 文档结构
 + configuration（配置）
@@ -122,7 +159,7 @@ MyBatis-Spring 会帮助你将 MyBatis 代码无缝地整合到 Spring 中。它
 
 依赖
 ```xml
-<!-- Mybatis -->
+<!-- Mybatis springboot -->
 <dependency>
     <groupId>org.mybatis.spring.boot</groupId>
     <artifactId>mybatis-spring-boot-starter</artifactId>
@@ -146,3 +183,24 @@ mybatis组件功能配置（如开启各种功能，mapper文件位置等），�
 创建Dao接口，加上注解@mapper
 
 创建对应接口的mapper.xml文件（用xml对接口进行实现，采用sql语句）
+
+### 一些思考（个人向）
+
+关于sqlsession和jdbc的连接的关系，sqlsession是mybatis框架的一个对象，负责处理上层交付下来的sql，在若需要操作数据库，则会建立jdbc连接，操作数据库，若使用的是连接池，则会根据连接池的规则去使用和创建连接。
+
+关于缓存的问题，mybatis的缓存由框架控制，下一部分会介绍，关于数据库部分自身的缓存则有数据库自身进行管理。
+
+## mybatis 缓存
+
+缓存架构
+
+![img](../img/1254583-20171029185910164-1823278112.png)
+
+分为一级缓存和二级缓存
+
+一级缓存为sqlsession的缓存，缓存只针对查询语句，一级缓存生命周期只存在于一个sqlsession对象。事务提交，插入更新和删除操作会自动更新缓存。也可以手动刷新缓存，关闭sqlsession会释放缓存。
+
+二级缓存，默认不开启，需要手动设置开启，需要返回的pojo是可以序列化的，即实现了serializable接口的，二级缓存不同namespace是分开的，相同的namespace的对象是共享缓存的。二级缓存只有关闭sqlsession才会写入（实际存储在硬盘）性能问题？。
+
+
+
